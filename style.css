@@ -478,6 +478,43 @@ html, body {
   margin-top: 4px;
 }
 
+.poze-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.miniatura-poza {
+  position: relative;
+  width: 76px;
+  height: 76px;
+}
+
+.miniatura-poza img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 2px solid #999999;
+  display: block;
+}
+
+.buton-sterge-poza {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #c62828;
+  color: #ffffff;
+  border: 2px solid #ffffff;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+}
+
 #canvas-semnatura {
   display: block;
   width: 100%;

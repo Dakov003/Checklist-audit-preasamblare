@@ -8,9 +8,14 @@
 
   var CHEIE_PREFERINTE = "auditPreferinte";
   var NUME_BAZA_DATE = "auditPreasamblareDB";
+  var VERSIUNE_BAZA_DATE = 2;
   var NUME_MAGAZIE = "audituri";
+  var NUME_MAGAZIE_POZE = "poze";
   var LIMITA_AUDITURI_PASTRATE = 50;
   var TIMP_REVENIRE_STERGERE_MS = 5000;
+  var LATURA_MAXIMA_POZA = 1280;
+  var CALITATE_JPEG_POZA = 0.7;
+  var LIMITA_POZE_PER_ITEM = 3;
 
   // stare aplicatie
   var itemi = [];        // lista plata: { nr, risc, cerinta, categorie }
@@ -23,6 +28,7 @@
   var semnaturaCurenta = null;     // data URL PNG sau null
   var primulNecompletatIndex = null;
   var desenandSemnatura = false;
+  var urlPozeActive = [];          // object URL-uri create pentru miniaturile curente
 
   // elemente ecran start
   var ecranStart = document.getElementById("ecran-start");
@@ -54,6 +60,9 @@
   var nokActiuneNecesara = document.getElementById("nok-actiune-necesara");
   var nokResponsabil = document.getElementById("nok-responsabil");
   var nokTermen = document.getElementById("nok-termen");
+  var pozePreview = document.getElementById("poze-preview");
+  var inputPoza = document.getElementById("input-poza");
+  var butonAdaugaPoza = document.getElementById("buton-adauga-poza");
   var butonSalveazaNok = document.getElementById("buton-salveaza-nok");
   var naMotiv = document.getElementById("na-motiv");
   var butonContinuaNa = document.getElementById("buton-continua-na");
@@ -140,6 +149,9 @@
     nokTermen.addEventListener("input", curataInvalid);
     naMotiv.addEventListener("input", curataInvalid);
 
+    butonAdaugaPoza.addEventListener("click", function () { inputPoza.click(); });
+    inputPoza.addEventListener("change", peSchimbareInputPoza);
+
     initializeazaSemnatura();
 
     var incarcareChecklist = fetch("data/checklist.json")
@@ -200,11 +212,15 @@
 
   function deschideBazaDeDate() {
     return new Promise(function (resolve, reject) {
-      var cerere = indexedDB.open(NUME_BAZA_DATE, 1);
+      var cerere = indexedDB.open(NUME_BAZA_DATE, VERSIUNE_BAZA_DATE);
       cerere.onupgradeneeded = function (eveniment) {
         var db = eveniment.target.result;
         if (!db.objectStoreNames.contains(NUME_MAGAZIE)) {
           db.createObjectStore(NUME_MAGAZIE, { keyPath: "id", autoIncrement: true });
+        }
+        if (!db.objectStoreNames.contains(NUME_MAGAZIE_POZE)) {
+          var magaziePoze = db.createObjectStore(NUME_MAGAZIE_POZE, { keyPath: "id", autoIncrement: true });
+          magaziePoze.createIndex("auditId", "auditId", { unique: false });
         }
       };
       cerere.onsuccess = function () { resolve(cerere.result); };
@@ -253,7 +269,85 @@
       if (toate.length <= LIMITA_AUDITURI_PASTRATE) return;
       toate.sort(function (a, b) { return new Date(a.dataStart) - new Date(b.dataStart); });
       var deSters = toate.slice(0, toate.length - LIMITA_AUDITURI_PASTRATE);
-      return Promise.all(deSters.map(function (a) { return stergeAudit(a.id); }));
+      return Promise.all(deSters.map(function (a) {
+        return Promise.all([stergeAudit(a.id), stergePozeAudit(a.id)]);
+      }));
+    });
+  }
+
+  // ---------- IndexedDB - poze (magazie separata, ca salvarea unui simplu
+  // OK sa nu rescrie de fiecare data toate pozele acumulate) ----------
+
+  function adaugaPoza(record) {
+    return new Promise(function (resolve, reject) {
+      var tx = bazaDate.transaction(NUME_MAGAZIE_POZE, "readwrite");
+      var cerere = tx.objectStore(NUME_MAGAZIE_POZE).add(record);
+      cerere.onsuccess = function () { resolve(cerere.result); };
+      cerere.onerror = function () { reject(cerere.error); };
+    });
+  }
+
+  function obtinePozeAudit(auditId) {
+    return new Promise(function (resolve, reject) {
+      var tx = bazaDate.transaction(NUME_MAGAZIE_POZE, "readonly");
+      var index = tx.objectStore(NUME_MAGAZIE_POZE).index("auditId");
+      var cerere = index.getAll(auditId);
+      cerere.onsuccess = function () { resolve(cerere.result); };
+      cerere.onerror = function () { reject(cerere.error); };
+    });
+  }
+
+  function obtinePozeItem(auditId, itemIndex) {
+    return obtinePozeAudit(auditId).then(function (toate) {
+      return toate.filter(function (p) { return p.itemIndex === itemIndex; });
+    });
+  }
+
+  function stergePoza(id) {
+    return new Promise(function (resolve, reject) {
+      var tx = bazaDate.transaction(NUME_MAGAZIE_POZE, "readwrite");
+      var cerere = tx.objectStore(NUME_MAGAZIE_POZE).delete(id);
+      cerere.onsuccess = function () { resolve(); };
+      cerere.onerror = function () { reject(cerere.error); };
+    });
+  }
+
+  function stergePozeAudit(auditId) {
+    return obtinePozeAudit(auditId).then(function (poze) {
+      return Promise.all(poze.map(function (p) { return stergePoza(p.id); }));
+    });
+  }
+
+  function comprimaImagine(fisier) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(fisier);
+      var imagine = new Image();
+
+      imagine.onload = function () {
+        var latimeOriginala = imagine.naturalWidth;
+        var inaltimeOriginala = imagine.naturalHeight;
+        var laturaMaxima = Math.max(latimeOriginala, inaltimeOriginala);
+        var scala = laturaMaxima > LATURA_MAXIMA_POZA ? LATURA_MAXIMA_POZA / laturaMaxima : 1;
+        var latimeFinala = Math.round(latimeOriginala * scala);
+        var inaltimeFinala = Math.round(inaltimeOriginala * scala);
+
+        var canvas = document.createElement("canvas");
+        canvas.width = latimeFinala;
+        canvas.height = inaltimeFinala;
+        canvas.getContext("2d").drawImage(imagine, 0, 0, latimeFinala, inaltimeFinala);
+
+        canvas.toBlob(function (blob) {
+          URL.revokeObjectURL(url);
+          if (blob) resolve(blob); else reject(new Error("Compresie esuata"));
+        }, "image/jpeg", CALITATE_JPEG_POZA);
+      };
+
+      imagine.onerror = function () {
+        URL.revokeObjectURL(url);
+        reject(new Error("Nu s-a putut citi imaginea"));
+      };
+
+      imagine.src = url;
     });
   }
 
@@ -505,6 +599,46 @@
     nokActiuneNecesara.value = (raspunsExistent && raspunsExistent.actiuneNecesara) || "";
     nokResponsabil.value = (raspunsExistent && raspunsExistent.responsabil) || "";
     nokTermen.value = (raspunsExistent && raspunsExistent.termen) || "";
+    randeazaPozePentruItemCurent();
+  }
+
+  function randeazaPozePentruItemCurent() {
+    urlPozeActive.forEach(function (url) { URL.revokeObjectURL(url); });
+    urlPozeActive = [];
+    pozePreview.innerHTML = "";
+
+    if (!auditCurent || !auditCurent.id) {
+      butonAdaugaPoza.hidden = false;
+      return;
+    }
+
+    obtinePozeItem(auditCurent.id, indexCurent).then(function (poze) {
+      poze.forEach(function (poza) {
+        var url = URL.createObjectURL(poza.blob);
+        urlPozeActive.push(url);
+
+        var miniatura = document.createElement("div");
+        miniatura.className = "miniatura-poza";
+
+        var img = document.createElement("img");
+        img.src = url;
+
+        var butonSterge = document.createElement("button");
+        butonSterge.type = "button";
+        butonSterge.className = "buton-sterge-poza";
+        butonSterge.setAttribute("aria-label", "Sterge poza");
+        butonSterge.textContent = "×";
+        butonSterge.addEventListener("click", function () {
+          stergePoza(poza.id).then(randeazaPozePentruItemCurent);
+        });
+
+        miniatura.appendChild(img);
+        miniatura.appendChild(butonSterge);
+        pozePreview.appendChild(miniatura);
+      });
+
+      butonAdaugaPoza.hidden = poze.length >= LIMITA_POZE_PER_ITEM;
+    });
   }
 
   function afiseazaFormularNa(raspunsExistent) {
@@ -531,6 +665,21 @@
       termen: nokTermen.value
     };
     mergiUrmatorul();
+  }
+
+  function peSchimbareInputPoza() {
+    var fisier = inputPoza.files && inputPoza.files[0];
+    inputPoza.value = "";
+    if (!fisier || !auditCurent || !auditCurent.id) return;
+
+    comprimaImagine(fisier).then(function (blob) {
+      return adaugaPoza({ auditId: auditCurent.id, itemIndex: indexCurent, blob: blob });
+    }).then(function () {
+      randeazaPozePentruItemCurent();
+    }).catch(function (eroare) {
+      console.error("Nu s-a putut adauga poza", eroare);
+      alert("Poza nu a putut fi adaugata. Incearca din nou.");
+    });
   }
 
   function salveazaNa() {
@@ -916,7 +1065,7 @@
 
     butonDa.addEventListener("click", function () {
       clearTimeout(timeoutRevenire);
-      stergeAudit(id).then(function () {
+      Promise.all([stergeAudit(id), stergePozeAudit(id)]).then(function () {
         randeazaListaAudituri();
         verificaAudituriExistente();
       });
