@@ -98,11 +98,13 @@ calitate 0.7. Fara compresie, 10 poze umplu memoria si blocheaza generarea PDF.
 
 Se afiseaza dupa ultimul item, dar accesibil oricand printr-un buton `Sumar`.
 
-- Verdict mare, colorat, calculat astfel:
-  - orice NOK pe un item `Critic` → **BLOCAT** (rosu), indiferent de procent
-  - altfel `>= 95%` → **CONFORM** (verde)
-  - `85% - 94.9%` → **CONFORM CU OBSERVATII** (galben)
-  - `< 85%` → **NECONFORM** (rosu)
+- Verdict mare, colorat, calculat astfel, in aceasta ordine (asa e formula reala
+  din foaia `Sumar_Scor`):
+  1. daca `OK + NOK = 0` (niciun item evaluat inca) → **NEEVALUAT** (gri)
+  2. altfel, orice NOK pe un item `Critic` → **BLOCAT** (rosu), indiferent de procent
+  3. altfel `>= 95%` → **CONFORM** (verde)
+  4. `85% - 94.9%` → **CONFORM CU OBSERVATII** (galben)
+  5. `< 85%` → **NECONFORM** (rosu)
 - Procent de conformitate = `OK / (OK + NOK)`. **Itemii N/A si cei necompletati
   se exclud din calcul.** Aceasta este regula din Excel si nu se schimba.
 - Contoare: total, OK, NOK, N/A, necompletati

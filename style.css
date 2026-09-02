@@ -159,6 +159,24 @@ html, body {
   color: #444444;
 }
 
+.rand-sumar-acces {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.buton-link-sumar {
+  min-height: 44px;
+  min-width: 64px;
+  padding: 6px 14px;
+  font-size: 14px;
+  font-weight: bold;
+  background: none;
+  border: 2px solid #1565c0;
+  border-radius: 4px;
+  color: #1565c0;
+}
+
 .nume-categorie {
   text-align: center;
   font-size: 13px;
@@ -346,4 +364,128 @@ html, body {
   color: #666666;
   text-align: center;
   padding: 16px 0;
+}
+
+/* Ecran sumar */
+
+.verdict-mare {
+  text-align: center;
+  font-size: 20px;
+  font-weight: bold;
+  color: #ffffff;
+  padding: 16px 8px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.verdict-mare.neevaluat {
+  background: #757575;
+}
+
+.verdict-mare.blocat,
+.verdict-mare.neconform {
+  background: #c62828;
+}
+
+.verdict-mare.conform {
+  background: #2e7d32;
+}
+
+.verdict-mare.conform-observatii {
+  background: #f9a825;
+  color: #111111;
+}
+
+.avertizare {
+  background: #fdecea;
+  border: 2px solid #c62828;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.avertizare p {
+  margin: 0 0 10px 0;
+  font-size: 15px;
+  color: #c62828;
+  font-weight: bold;
+  text-align: center;
+}
+
+.bloc-contoare {
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 4px 12px;
+  margin-bottom: 20px;
+}
+
+.rand-contor {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 15px;
+  border-bottom: 1px solid #eeeeee;
+}
+
+.rand-contor:last-child {
+  border-bottom: none;
+}
+
+.rand-contor span:last-child {
+  font-weight: bold;
+}
+
+.subtitlu-sumar {
+  font-size: 16px;
+  margin: 20px 0 10px 0;
+}
+
+.rand-categorie {
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+
+.rand-categorie-titlu {
+  font-size: 15px;
+  font-weight: bold;
+}
+
+.rand-categorie-detalii {
+  font-size: 13px;
+  color: #444444;
+  margin-top: 4px;
+}
+
+.rand-nok {
+  border: 2px solid #f5c6c6;
+  background: #fdecea;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+
+.rand-nok-titlu {
+  font-size: 15px;
+  font-weight: bold;
+  color: #c62828;
+}
+
+.rand-nok-detalii {
+  font-size: 13px;
+  color: #444444;
+  margin-top: 4px;
+}
+
+#canvas-semnatura {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: 150px;
+  border: 2px solid #999999;
+  border-radius: 4px;
+  background: #ffffff;
+  touch-action: none;
+  margin-bottom: 8px;
 }

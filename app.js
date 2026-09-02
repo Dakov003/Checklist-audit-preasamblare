@@ -20,6 +20,9 @@
   var bazaDate = null;
   var auditCurent = null;          // { id, aria, masina, pn, schimb, auditor, dataStart }
   var auditNefinalizatRecent = null;
+  var semnaturaCurenta = null;     // data URL PNG sau null
+  var primulNecompletatIndex = null;
+  var desenandSemnatura = false;
 
   // elemente ecran start
   var ecranStart = document.getElementById("ecran-start");
@@ -55,10 +58,27 @@
   var naMotiv = document.getElementById("na-motiv");
   var butonContinuaNa = document.getElementById("buton-continua-na");
   var butonInapoi = document.getElementById("buton-inapoi");
+  var butonSumar = document.getElementById("buton-sumar");
 
-  // ecran final
-  var ecranFinal = document.getElementById("ecran-final");
-  var butonInapoiFinal = document.getElementById("buton-inapoi-final");
+  // ecran sumar
+  var ecranSumar = document.getElementById("ecran-sumar");
+  var verdictMare = document.getElementById("verdict-mare");
+  var avertizareNecompletate = document.getElementById("avertizare-necompletate");
+  var textAvertizareNecompletate = document.getElementById("text-avertizare-necompletate");
+  var butonSariNecompletat = document.getElementById("buton-sari-necompletat");
+  var contorTotal = document.getElementById("contor-total");
+  var contorOk = document.getElementById("contor-ok");
+  var contorNok = document.getElementById("contor-nok");
+  var contorNa = document.getElementById("contor-na");
+  var contorNecompletati = document.getElementById("contor-necompletati");
+  var contorNokCritice = document.getElementById("contor-nok-critice");
+  var contorNokMajorMinor = document.getElementById("contor-nok-major-minor");
+  var listaCategorii = document.getElementById("lista-categorii");
+  var listaNok = document.getElementById("lista-nok");
+  var canvasSemnatura = document.getElementById("canvas-semnatura");
+  var ctxSemnatura = canvasSemnatura.getContext("2d");
+  var butonStergeSemnatura = document.getElementById("buton-sterge-semnatura");
+  var butonInapoiSumar = document.getElementById("buton-inapoi-sumar");
 
   // ecran audituri salvate
   var ecranAudituriSalvate = document.getElementById("ecran-audituri-salvate");
@@ -99,10 +119,17 @@
     butonSalveazaNok.addEventListener("click", salveazaNok);
     butonContinuaNa.addEventListener("click", salveazaNa);
     butonInapoi.addEventListener("click", itemAnterior);
-    butonInapoiFinal.addEventListener("click", function () {
-      ecranFinal.hidden = true;
+    butonSumar.addEventListener("click", deschideSumar);
+    butonInapoiSumar.addEventListener("click", function () {
+      ecranSumar.hidden = true;
       ecranItem.hidden = false;
-      indexCurent = itemi.length - 1;
+      randeazaItem(indexCurent);
+    });
+    butonSariNecompletat.addEventListener("click", function () {
+      if (primulNecompletatIndex === null) return;
+      ecranSumar.hidden = true;
+      ecranItem.hidden = false;
+      indexCurent = primulNecompletatIndex;
       randeazaItem(indexCurent);
     });
 
@@ -112,6 +139,8 @@
     nokResponsabil.addEventListener("input", curataInvalid);
     nokTermen.addEventListener("input", curataInvalid);
     naMotiv.addEventListener("input", curataInvalid);
+
+    initializeazaSemnatura();
 
     var incarcareChecklist = fetch("data/checklist.json")
       .then(function (raspuns) { return raspuns.json(); })
@@ -258,10 +287,16 @@
       dataStart: auditCurent.dataStart,
       dataUltimaModificare: new Date().toISOString(),
       raspunsuri: raspunsuri,
-      finalizat: finalizat
+      finalizat: finalizat,
+      semnatura: semnaturaCurenta
     }).catch(function (eroare) {
       console.error("Nu s-a putut salva progresul auditului", eroare);
     });
+  }
+
+  function salveazaSemnaturaInDB(dataUrlSauNull) {
+    semnaturaCurenta = dataUrlSauNull;
+    salveazaProgresInDB();
   }
 
   // ---------- preferinte (localStorage) ----------
@@ -344,7 +379,8 @@
       dataStart: acum,
       dataUltimaModificare: acum,
       raspunsuri: itemi.map(function () { return null; }),
-      finalizat: false
+      finalizat: false,
+      semnatura: null
     };
 
     adaugaAudit(recordNou).then(function (idNou) {
@@ -358,6 +394,7 @@
         dataStart: recordNou.dataStart
       };
       raspunsuri = recordNou.raspunsuri;
+      semnaturaCurenta = null;
       indexCurent = 0;
 
       ecranStart.hidden = true;
@@ -384,15 +421,20 @@
       dataStart: record.dataStart
     };
     raspunsuri = record.raspunsuri.slice();
-
-    var indexNecompletat = raspunsuri.findIndex(function (r) { return r === null; });
-    indexCurent = indexNecompletat === -1 ? 0 : indexNecompletat;
+    semnaturaCurenta = record.semnatura || null;
 
     ecranStart.hidden = true;
     ecranAudituriSalvate.hidden = true;
-    ecranFinal.hidden = true;
-    ecranItem.hidden = false;
-    randeazaItem(indexCurent);
+
+    var indexNecompletat = raspunsuri.findIndex(function (r) { return r === null; });
+    if (indexNecompletat === -1) {
+      indexCurent = itemi.length - 1;
+      deschideSumar();
+    } else {
+      indexCurent = indexNecompletat;
+      ecranItem.hidden = false;
+      randeazaItem(indexCurent);
+    }
   }
 
   // ---------- ecran item ----------
@@ -506,8 +548,7 @@
   function mergiUrmatorul() {
     salveazaProgresInDB();
     if (indexCurent + 1 >= itemi.length) {
-      ecranItem.hidden = true;
-      ecranFinal.hidden = false;
+      deschideSumar();
       return;
     }
     indexCurent++;
@@ -518,6 +559,257 @@
     if (indexCurent === 0) return;
     indexCurent--;
     randeazaItem(indexCurent);
+  }
+
+  // ---------- ecran sumar ----------
+
+  function deschideSumar() {
+    ecranStart.hidden = true;
+    ecranAudituriSalvate.hidden = true;
+    ecranItem.hidden = true;
+    ecranSumar.hidden = false;
+    redaSemnatura();
+    randeazaSumar();
+  }
+
+  function calculeazaSumar() {
+    var ok = 0, nok = 0, na = 0, nokCritice = 0, nokMajor = 0, nokMinor = 0;
+    var listaNokCalculata = [];
+    var necompletateIndex = [];
+    var categoriiMap = {};
+    var ordineCategorii = [];
+
+    itemi.forEach(function (item, index) {
+      if (!categoriiMap[item.categorie]) {
+        categoriiMap[item.categorie] = { nume: item.categorie, total: 0, ok: 0, nok: 0, na: 0 };
+        ordineCategorii.push(item.categorie);
+      }
+      var cat = categoriiMap[item.categorie];
+      cat.total++;
+
+      var raspuns = raspunsuri[index];
+      if (!raspuns) {
+        necompletateIndex.push(index);
+        return;
+      }
+
+      if (raspuns.status === "OK") {
+        ok++;
+        cat.ok++;
+      } else if (raspuns.status === "NOK") {
+        nok++;
+        cat.nok++;
+        if (item.risc === "Critic") nokCritice++;
+        else if (item.risc === "Major") nokMajor++;
+        else nokMinor++;
+        listaNokCalculata.push({
+          nr: item.nr,
+          cerinta: item.cerinta,
+          responsabil: raspuns.responsabil,
+          termen: raspuns.termen
+        });
+      } else if (raspuns.status === "N/A") {
+        na++;
+        cat.na++;
+      }
+    });
+
+    var bazaCalcul = ok + nok;
+    var procent = bazaCalcul === 0 ? 0 : ok / bazaCalcul;
+
+    var verdict;
+    if (bazaCalcul === 0) {
+      verdict = "NEEVALUAT";
+    } else if (nokCritice > 0) {
+      verdict = "BLOCAT";
+    } else if (procent >= 0.95) {
+      verdict = "CONFORM";
+    } else if (procent >= 0.85) {
+      verdict = "CONFORM CU OBSERVATII";
+    } else {
+      verdict = "NECONFORM";
+    }
+
+    var categorii = ordineCategorii.map(function (nume) {
+      var cat = categoriiMap[nume];
+      var catBaza = cat.ok + cat.nok;
+      return {
+        nume: nume,
+        total: cat.total,
+        ok: cat.ok,
+        nok: cat.nok,
+        na: cat.na,
+        necompletat: cat.total - cat.ok - cat.nok - cat.na,
+        procent: catBaza === 0 ? 0 : cat.ok / catBaza
+      };
+    });
+
+    return {
+      total: itemi.length,
+      ok: ok,
+      nok: nok,
+      na: na,
+      necompletati: necompletateIndex.length,
+      primulNecompletat: necompletateIndex.length > 0 ? necompletateIndex[0] : null,
+      nokCritice: nokCritice,
+      nokMajor: nokMajor,
+      nokMinor: nokMinor,
+      procent: procent,
+      verdict: verdict,
+      categorii: categorii,
+      listaNok: listaNokCalculata
+    };
+  }
+
+  function claseVerdict(verdict) {
+    if (verdict === "NEEVALUAT") return "neevaluat";
+    if (verdict === "BLOCAT") return "blocat";
+    if (verdict === "CONFORM") return "conform";
+    if (verdict === "CONFORM CU OBSERVATII") return "conform-observatii";
+    return "neconform";
+  }
+
+  function formatProcent(fractie) {
+    return (fractie * 100).toFixed(1) + "%";
+  }
+
+  function formatDataScurta(dataISO) {
+    if (!dataISO) return "-";
+    var parti = dataISO.split("-");
+    if (parti.length !== 3) return dataISO;
+    return parti[2] + "." + parti[1] + "." + parti[0];
+  }
+
+  function trunchiazaText(text, maxim) {
+    if (!text || text.length <= maxim) return text || "";
+    return text.slice(0, maxim - 1).trim() + "...";
+  }
+
+  function randeazaSumar() {
+    var sumar = calculeazaSumar();
+    primulNecompletatIndex = sumar.primulNecompletat;
+
+    verdictMare.className = "verdict-mare " + claseVerdict(sumar.verdict);
+    verdictMare.textContent = sumar.verdict === "NEEVALUAT"
+      ? sumar.verdict
+      : sumar.verdict + " (" + formatProcent(sumar.procent) + ")";
+
+    if (sumar.necompletati > 0) {
+      avertizareNecompletate.hidden = false;
+      textAvertizareNecompletate.textContent = "Au ramas " + sumar.necompletati + " itemi necompletati.";
+    } else {
+      avertizareNecompletate.hidden = true;
+    }
+
+    contorTotal.textContent = sumar.total;
+    contorOk.textContent = sumar.ok;
+    contorNok.textContent = sumar.nok;
+    contorNa.textContent = sumar.na;
+    contorNecompletati.textContent = sumar.necompletati;
+    contorNokCritice.textContent = sumar.nokCritice;
+    contorNokMajorMinor.textContent = sumar.nokMajor + " / " + sumar.nokMinor;
+
+    listaCategorii.innerHTML = "";
+    sumar.categorii.forEach(function (cat) {
+      var rand = document.createElement("div");
+      rand.className = "rand-categorie";
+
+      var titlu = document.createElement("div");
+      titlu.className = "rand-categorie-titlu";
+      titlu.textContent = cat.nume;
+
+      var detalii = document.createElement("div");
+      detalii.className = "rand-categorie-detalii";
+      detalii.textContent = "Total " + cat.total + " - OK " + cat.ok + " - NOK " + cat.nok +
+        " - N/A " + cat.na + " - Necompletat " + cat.necompletat + " - " + formatProcent(cat.procent);
+
+      rand.appendChild(titlu);
+      rand.appendChild(detalii);
+      listaCategorii.appendChild(rand);
+    });
+
+    listaNok.innerHTML = "";
+    if (sumar.listaNok.length === 0) {
+      var gol = document.createElement("div");
+      gol.className = "text-gol";
+      gol.textContent = "Niciun NOK inregistrat.";
+      listaNok.appendChild(gol);
+    } else {
+      sumar.listaNok.forEach(function (nokItem) {
+        var rand = document.createElement("div");
+        rand.className = "rand-nok";
+
+        var titlu = document.createElement("div");
+        titlu.className = "rand-nok-titlu";
+        titlu.textContent = "Nr. " + nokItem.nr + " - " + trunchiazaText(nokItem.cerinta, 70);
+
+        var detalii = document.createElement("div");
+        detalii.className = "rand-nok-detalii";
+        detalii.textContent = "Responsabil: " + (nokItem.responsabil || "-") +
+          " - Termen: " + formatDataScurta(nokItem.termen);
+
+        rand.appendChild(titlu);
+        rand.appendChild(detalii);
+        listaNok.appendChild(rand);
+      });
+    }
+  }
+
+  // ---------- semnatura ----------
+
+  function initializeazaSemnatura() {
+    ctxSemnatura.lineWidth = 2.5;
+    ctxSemnatura.lineCap = "round";
+    ctxSemnatura.strokeStyle = "#111111";
+
+    canvasSemnatura.addEventListener("pointerdown", function (eveniment) {
+      desenandSemnatura = true;
+      var pozitie = pozitieInCanvas(eveniment);
+      ctxSemnatura.beginPath();
+      ctxSemnatura.moveTo(pozitie.x, pozitie.y);
+      canvasSemnatura.setPointerCapture(eveniment.pointerId);
+    });
+
+    canvasSemnatura.addEventListener("pointermove", function (eveniment) {
+      if (!desenandSemnatura) return;
+      var pozitie = pozitieInCanvas(eveniment);
+      ctxSemnatura.lineTo(pozitie.x, pozitie.y);
+      ctxSemnatura.stroke();
+    });
+
+    canvasSemnatura.addEventListener("pointerup", opresteDesenSemnatura);
+    canvasSemnatura.addEventListener("pointercancel", opresteDesenSemnatura);
+
+    butonStergeSemnatura.addEventListener("click", function () {
+      ctxSemnatura.clearRect(0, 0, canvasSemnatura.width, canvasSemnatura.height);
+      salveazaSemnaturaInDB(null);
+    });
+  }
+
+  function pozitieInCanvas(eveniment) {
+    var dreptunghi = canvasSemnatura.getBoundingClientRect();
+    var scaleX = canvasSemnatura.width / dreptunghi.width;
+    var scaleY = canvasSemnatura.height / dreptunghi.height;
+    return {
+      x: (eveniment.clientX - dreptunghi.left) * scaleX,
+      y: (eveniment.clientY - dreptunghi.top) * scaleY
+    };
+  }
+
+  function opresteDesenSemnatura() {
+    if (!desenandSemnatura) return;
+    desenandSemnatura = false;
+    salveazaSemnaturaInDB(canvasSemnatura.toDataURL("image/png"));
+  }
+
+  function redaSemnatura() {
+    ctxSemnatura.clearRect(0, 0, canvasSemnatura.width, canvasSemnatura.height);
+    if (!semnaturaCurenta) return;
+    var imagine = new Image();
+    imagine.onload = function () {
+      ctxSemnatura.drawImage(imagine, 0, 0, canvasSemnatura.width, canvasSemnatura.height);
+    };
+    imagine.src = semnaturaCurenta;
   }
 
   // ---------- ecran audituri salvate ----------

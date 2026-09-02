@@ -71,6 +71,10 @@
 <!-- Ecran 2: parcurgerea checklistului -->
 <section id="ecran-item" class="ecran" hidden>
 
+  <div class="rand-sumar-acces">
+    <button type="button" id="buton-sumar" class="buton-link-sumar">Sumar</button>
+  </div>
+
   <div class="bara-progres-zona">
     <div class="bara-progres-fundal">
       <div class="bara-progres-umplere" id="bara-progres-umplere"></div>
@@ -133,14 +137,43 @@
   </button>
 </section>
 
-<!-- Ecran 3: final provizoriu (sumarul real vine in Etapa 3) -->
-<section id="ecran-final" class="ecran" hidden>
-  <h1 class="titlu-app">Checklist parcurs complet</h1>
-  <p class="text-info">
-    Ai raspuns la toate itemii. Ecranul de sumar si verdictul vin in Etapa 3.
-  </p>
-  <button type="button" id="buton-inapoi-final" class="buton-mare buton-principal">
-    Inapoi la ultimul item
+<!-- Ecran 3: sumar si finalizare -->
+<section id="ecran-sumar" class="ecran" hidden>
+  <h1 class="titlu-app">Sumar audit</h1>
+
+  <div class="verdict-mare" id="verdict-mare"></div>
+
+  <div id="avertizare-necompletate" class="avertizare" hidden>
+    <p id="text-avertizare-necompletate"></p>
+    <button type="button" id="buton-sari-necompletat" class="buton-mare buton-principal">
+      Mergi la primul necompletat
+    </button>
+  </div>
+
+  <div class="bloc-contoare">
+    <div class="rand-contor"><span>Total itemi</span><span id="contor-total"></span></div>
+    <div class="rand-contor"><span>OK</span><span id="contor-ok"></span></div>
+    <div class="rand-contor"><span>NOK</span><span id="contor-nok"></span></div>
+    <div class="rand-contor"><span>N/A</span><span id="contor-na"></span></div>
+    <div class="rand-contor"><span>Necompletati</span><span id="contor-necompletati"></span></div>
+    <div class="rand-contor"><span>NOK critice</span><span id="contor-nok-critice"></span></div>
+    <div class="rand-contor"><span>NOK major / minor</span><span id="contor-nok-major-minor"></span></div>
+  </div>
+
+  <h2 class="subtitlu-sumar">Defalcare pe categorii</h2>
+  <div id="lista-categorii"></div>
+
+  <h2 class="subtitlu-sumar">Itemi NOK</h2>
+  <div id="lista-nok"></div>
+
+  <h2 class="subtitlu-sumar">Semnatura</h2>
+  <canvas id="canvas-semnatura" width="320" height="150"></canvas>
+  <button type="button" id="buton-sterge-semnatura" class="buton-discret">
+    Sterge semnatura
+  </button>
+
+  <button type="button" id="buton-inapoi-sumar" class="buton-inapoi">
+    &larr; Inapoi la checklist
   </button>
 </section>
 
