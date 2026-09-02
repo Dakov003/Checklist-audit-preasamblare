@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Audit Preasamblare</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Ecran 1: start audit -->
+<section id="ecran-start" class="ecran">
+  <h1 class="titlu-app">Audit Preasamblare</h1>
+
+  <div class="camp">
+    <label for="input-aria">Aria</label>
+    <input type="text" id="input-aria" autocomplete="off">
+  </div>
+
+  <div class="camp">
+    <label for="input-masina">Nr. masina</label>
+    <input type="text" id="input-masina" autocomplete="off">
+  </div>
+
+  <div class="camp">
+    <label for="input-pn">PN</label>
+    <input type="text" id="input-pn" autocomplete="off">
+  </div>
+
+  <div class="camp">
+    <label>Schimb</label>
+    <div class="grup-butoane" id="grup-schimb">
+      <button type="button" class="buton-optiune" data-schimb="1">1</button>
+      <button type="button" class="buton-optiune" data-schimb="2">2</button>
+      <button type="button" class="buton-optiune" data-schimb="3">3</button>
+    </div>
+  </div>
+
+  <div class="camp">
+    <label for="input-auditor">Auditor</label>
+    <input type="text" id="input-auditor" autocomplete="off">
+  </div>
+
+  <div class="camp">
+    <label>Data si ora</label>
+    <div id="data-ora-auto" class="text-auto"></div>
+  </div>
+
+  <button type="button" id="buton-incepe" class="buton-mare buton-principal">
+    Incepe auditul
+  </button>
+</section>
+
+<!-- Ecran 2: parcurgerea checklistului -->
+<section id="ecran-item" class="ecran" hidden>
+
+  <div class="bara-progres-zona">
+    <div class="bara-progres-fundal">
+      <div class="bara-progres-umplere" id="bara-progres-umplere"></div>
+    </div>
+    <div class="contor-item" id="contor-item"></div>
+  </div>
+
+  <div class="nume-categorie" id="nume-categorie"></div>
+
+  <div class="eticheta-risc" id="eticheta-risc"></div>
+
+  <div class="text-cerinta" id="text-cerinta"></div>
+
+  <div class="grup-status">
+    <button type="button" id="buton-ok" class="buton-mare buton-status buton-ok">OK</button>
+    <button type="button" id="buton-nok" class="buton-mare buton-status buton-nok">NOK</button>
+    <button type="button" id="buton-na" class="buton-mare buton-status buton-na">N/A</button>
+  </div>
+
+  <!-- Formular NOK -->
+  <div id="formular-nok" class="formular-extins" hidden>
+    <div class="camp">
+      <label for="nok-gasit">Ce ai gasit</label>
+      <input type="text" id="nok-gasit" autocomplete="off">
+    </div>
+    <div class="camp">
+      <label for="nok-actiune">Actiune imediata</label>
+      <input type="text" id="nok-actiune" autocomplete="off">
+    </div>
+    <div class="camp">
+      <label for="nok-actiune-necesara">Actiune necesara</label>
+      <input type="text" id="nok-actiune-necesara" autocomplete="off">
+    </div>
+    <div class="camp">
+      <label for="nok-responsabil">Responsabil</label>
+      <input type="text" id="nok-responsabil" autocomplete="off">
+    </div>
+    <div class="camp">
+      <label for="nok-termen">Termen</label>
+      <input type="date" id="nok-termen">
+    </div>
+    <button type="button" id="buton-salveaza-nok" class="buton-mare buton-principal">
+      Salveaza si continua
+    </button>
+  </div>
+
+  <!-- Formular N/A -->
+  <div id="formular-na" class="formular-extins" hidden>
+    <div class="camp">
+      <label for="na-motiv">De ce nu se aplica</label>
+      <input type="text" id="na-motiv" autocomplete="off">
+    </div>
+    <button type="button" id="buton-continua-na" class="buton-mare buton-principal">
+      Continua
+    </button>
+  </div>
+
+  <button type="button" id="buton-inapoi" class="buton-inapoi" aria-label="Itemul anterior">
+    &larr; Item anterior
+  </button>
+</section>
+
+<!-- Ecran 3: final provizoriu (sumarul real vine in Etapa 3) -->
+<section id="ecran-final" class="ecran" hidden>
+  <h1 class="titlu-app">Checklist parcurs complet</h1>
+  <p class="text-info">
+    Ai raspuns la toate itemii. Ecranul de sumar si verdictul vin in Etapa 3.
+  </p>
+  <button type="button" id="buton-inapoi-final" class="buton-mare buton-principal">
+    Inapoi la ultimul item
+  </button>
+</section>
+
+<script src="app.js"></script>
+</body>
+</html>
