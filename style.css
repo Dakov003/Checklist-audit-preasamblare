@@ -114,6 +114,24 @@ html, body {
   color: #ffffff;
 }
 
+.buton-continua {
+  background: #e3f2fd;
+  color: #0d47a1;
+  border: 2px solid #1565c0;
+}
+
+.buton-discret {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  font-size: 16px;
+  background: none;
+  border: none;
+  color: #1565c0;
+  text-align: center;
+  margin-top: 12px;
+}
+
 /* Ecran item - bara de progres */
 
 .bara-progres-zona {
@@ -241,4 +259,91 @@ html, body {
 
 .buton-inapoi:disabled {
   color: #bbbbbb;
+}
+
+/* Lista de audituri salvate */
+
+.rand-audit {
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.rand-audit-titlu {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.rand-audit-detalii {
+  font-size: 14px;
+  color: #444444;
+  margin-top: 4px;
+}
+
+.rand-audit-detalii.finalizat {
+  color: #2e7d32;
+  font-weight: bold;
+}
+
+.rand-audit-actiuni {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.buton-deschide {
+  width: 100%;
+  min-height: 48px;
+  font-size: 16px;
+  font-weight: bold;
+  background: #1565c0;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+}
+
+.zona-sterge {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+}
+
+.buton-sterge {
+  width: 100%;
+  min-height: 48px;
+  font-size: 16px;
+  background: #ffffff;
+  color: #c62828;
+  border: 2px solid #c62828;
+  border-radius: 4px;
+}
+
+.buton-sterge-nu {
+  flex: 2;
+  min-height: 48px;
+  font-size: 16px;
+  font-weight: bold;
+  background: #616161;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+}
+
+.buton-sterge-da {
+  flex: 1;
+  min-height: 48px;
+  font-size: 14px;
+  background: #c62828;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+}
+
+.text-gol {
+  font-size: 15px;
+  color: #666666;
+  text-align: center;
+  padding: 16px 0;
 }

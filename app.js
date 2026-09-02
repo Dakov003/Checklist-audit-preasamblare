@@ -1,17 +1,25 @@
-// Aplicatie audit preasamblare - Etapa 1
-// Fara backend, fara framework. Stare tinuta in memorie pentru un audit in curs.
-// Doar cateva preferinte mici (aria, masina, auditor) se retin in localStorage.
+// Aplicatie audit preasamblare - Etapa 2
+// Fara backend, fara framework. Auditul curent se salveaza in IndexedDB dupa
+// fiecare item. Doar cateva preferinte mici (aria, masina, auditor) stau in
+// localStorage. Fara poze, fara PDF, fara offline (vin in etapele urmatoare).
 
 (function () {
   "use strict";
 
   var CHEIE_PREFERINTE = "auditPreferinte";
+  var NUME_BAZA_DATE = "auditPreasamblareDB";
+  var NUME_MAGAZIE = "audituri";
+  var LIMITA_AUDITURI_PASTRATE = 50;
+  var TIMP_REVENIRE_STERGERE_MS = 5000;
 
   // stare aplicatie
   var itemi = [];        // lista plata: { nr, risc, cerinta, categorie }
   var raspunsuri = [];   // paralela cu itemi: null sau obiect de raspuns
   var indexCurent = 0;
   var schimbSelectat = null;
+  var bazaDate = null;
+  var auditCurent = null;          // { id, aria, masina, pn, schimb, auditor, dataStart }
+  var auditNefinalizatRecent = null;
 
   // elemente ecran start
   var ecranStart = document.getElementById("ecran-start");
@@ -22,6 +30,9 @@
   var inputAuditor = document.getElementById("input-auditor");
   var dataOraAuto = document.getElementById("data-ora-auto");
   var butonIncepe = document.getElementById("buton-incepe");
+  var butonContinua = document.getElementById("buton-continua");
+  var continuaOra = document.getElementById("continua-ora");
+  var butonAudituriSalvate = document.getElementById("buton-audituri-salvate");
 
   // elemente ecran item
   var ecranItem = document.getElementById("ecran-item");
@@ -49,6 +60,11 @@
   var ecranFinal = document.getElementById("ecran-final");
   var butonInapoiFinal = document.getElementById("buton-inapoi-final");
 
+  // ecran audituri salvate
+  var ecranAudituriSalvate = document.getElementById("ecran-audituri-salvate");
+  var listaAudituri = document.getElementById("lista-audituri");
+  var butonInapoiAudituri = document.getElementById("buton-inapoi-audituri");
+
   // ---------- pornire ----------
 
   function init() {
@@ -58,6 +74,19 @@
 
     grupSchimb.addEventListener("click", pePeClicSchimb);
     butonIncepe.addEventListener("click", peClicIncepe);
+    butonContinua.addEventListener("click", function () {
+      if (auditNefinalizatRecent) deschideAudit(auditNefinalizatRecent);
+    });
+    butonAudituriSalvate.addEventListener("click", function () {
+      ecranStart.hidden = true;
+      ecranAudituriSalvate.hidden = false;
+      randeazaListaAudituri();
+    });
+    butonInapoiAudituri.addEventListener("click", function () {
+      ecranAudituriSalvate.hidden = true;
+      ecranStart.hidden = false;
+      verificaAudituriExistente();
+    });
 
     inputAria.addEventListener("input", curataInvalid);
     inputMasina.addEventListener("input", curataInvalid);
@@ -84,7 +113,7 @@
     nokTermen.addEventListener("input", curataInvalid);
     naMotiv.addEventListener("input", curataInvalid);
 
-    fetch("data/checklist.json")
+    var incarcareChecklist = fetch("data/checklist.json")
       .then(function (raspuns) { return raspuns.json(); })
       .then(function (date) {
         itemi = [];
@@ -103,20 +132,136 @@
         alert("Nu s-a putut incarca checklistul (data/checklist.json). Verifica ca pornesti aplicatia printr-un server local, nu direct din fisier.");
         console.error(eroare);
       });
+
+    var deschidereDB = deschideBazaDeDate()
+      .then(function (db) { bazaDate = db; })
+      .catch(function (eroare) {
+        console.error("Nu s-a putut deschide baza de date locala", eroare);
+      });
+
+    Promise.all([incarcareChecklist, deschidereDB]).then(function () {
+      verificaAudituriExistente();
+    });
   }
 
   function actualizeazaDataOra() {
-    var acum = new Date();
-    var zi = doiDigiti(acum.getDate());
-    var luna = doiDigiti(acum.getMonth() + 1);
-    var an = acum.getFullYear();
-    var ora = doiDigiti(acum.getHours());
-    var minut = doiDigiti(acum.getMinutes());
-    dataOraAuto.textContent = zi + "." + luna + "." + an + " " + ora + ":" + minut;
+    dataOraAuto.textContent = formatDataOra(new Date().toISOString());
   }
 
   function doiDigiti(numar) {
     return numar < 10 ? "0" + numar : "" + numar;
+  }
+
+  function formatDataOra(isoString) {
+    var data = new Date(isoString);
+    var zi = doiDigiti(data.getDate());
+    var luna = doiDigiti(data.getMonth() + 1);
+    var an = data.getFullYear();
+    var ora = doiDigiti(data.getHours());
+    var minut = doiDigiti(data.getMinutes());
+    return zi + "." + luna + "." + an + " " + ora + ":" + minut;
+  }
+
+  function formatOraScurta(isoString) {
+    var data = new Date(isoString);
+    return doiDigiti(data.getHours()) + ":" + doiDigiti(data.getMinutes());
+  }
+
+  // ---------- IndexedDB ----------
+
+  function deschideBazaDeDate() {
+    return new Promise(function (resolve, reject) {
+      var cerere = indexedDB.open(NUME_BAZA_DATE, 1);
+      cerere.onupgradeneeded = function (eveniment) {
+        var db = eveniment.target.result;
+        if (!db.objectStoreNames.contains(NUME_MAGAZIE)) {
+          db.createObjectStore(NUME_MAGAZIE, { keyPath: "id", autoIncrement: true });
+        }
+      };
+      cerere.onsuccess = function () { resolve(cerere.result); };
+      cerere.onerror = function () { reject(cerere.error); };
+    });
+  }
+
+  function adaugaAudit(record) {
+    return new Promise(function (resolve, reject) {
+      var tx = bazaDate.transaction(NUME_MAGAZIE, "readwrite");
+      var cerere = tx.objectStore(NUME_MAGAZIE).add(record);
+      cerere.onsuccess = function () { resolve(cerere.result); };
+      cerere.onerror = function () { reject(cerere.error); };
+    });
+  }
+
+  function actualizeazaAudit(record) {
+    return new Promise(function (resolve, reject) {
+      var tx = bazaDate.transaction(NUME_MAGAZIE, "readwrite");
+      var cerere = tx.objectStore(NUME_MAGAZIE).put(record);
+      cerere.onsuccess = function () { resolve(); };
+      cerere.onerror = function () { reject(cerere.error); };
+    });
+  }
+
+  function obtineToateAudituri() {
+    return new Promise(function (resolve, reject) {
+      var tx = bazaDate.transaction(NUME_MAGAZIE, "readonly");
+      var cerere = tx.objectStore(NUME_MAGAZIE).getAll();
+      cerere.onsuccess = function () { resolve(cerere.result); };
+      cerere.onerror = function () { reject(cerere.error); };
+    });
+  }
+
+  function stergeAudit(id) {
+    return new Promise(function (resolve, reject) {
+      var tx = bazaDate.transaction(NUME_MAGAZIE, "readwrite");
+      var cerere = tx.objectStore(NUME_MAGAZIE).delete(id);
+      cerere.onsuccess = function () { resolve(); };
+      cerere.onerror = function () { reject(cerere.error); };
+    });
+  }
+
+  function pruneazaAudituriVechi() {
+    return obtineToateAudituri().then(function (toate) {
+      if (toate.length <= LIMITA_AUDITURI_PASTRATE) return;
+      toate.sort(function (a, b) { return new Date(a.dataStart) - new Date(b.dataStart); });
+      var deSters = toate.slice(0, toate.length - LIMITA_AUDITURI_PASTRATE);
+      return Promise.all(deSters.map(function (a) { return stergeAudit(a.id); }));
+    });
+  }
+
+  function verificaAudituriExistente() {
+    if (!bazaDate) return;
+    obtineToateAudituri().then(function (toate) {
+      var nefinalizate = toate.filter(function (a) { return !a.finalizat; });
+      if (nefinalizate.length > 0) {
+        nefinalizate.sort(function (a, b) { return new Date(b.dataUltimaModificare) - new Date(a.dataUltimaModificare); });
+        auditNefinalizatRecent = nefinalizate[0];
+        continuaOra.textContent = formatOraScurta(auditNefinalizatRecent.dataUltimaModificare);
+        butonContinua.hidden = false;
+      } else {
+        auditNefinalizatRecent = null;
+        butonContinua.hidden = true;
+      }
+      butonAudituriSalvate.hidden = toate.length === 0;
+    });
+  }
+
+  function salveazaProgresInDB() {
+    if (!auditCurent || !auditCurent.id) return;
+    var finalizat = raspunsuri.every(function (r) { return r !== null; });
+    actualizeazaAudit({
+      id: auditCurent.id,
+      aria: auditCurent.aria,
+      masina: auditCurent.masina,
+      pn: auditCurent.pn,
+      schimb: auditCurent.schimb,
+      auditor: auditCurent.auditor,
+      dataStart: auditCurent.dataStart,
+      dataUltimaModificare: new Date().toISOString(),
+      raspunsuri: raspunsuri,
+      finalizat: finalizat
+    }).catch(function (eroare) {
+      console.error("Nu s-a putut salva progresul auditului", eroare);
+    });
   }
 
   // ---------- preferinte (localStorage) ----------
@@ -182,12 +327,70 @@
       return;
     }
 
+    if (!bazaDate) {
+      alert("Memoria telefonului inca se initializeaza. Mai asteapta o clipa si incearca din nou.");
+      return;
+    }
+
     salveazaPreferinte();
 
-    raspunsuri = itemi.map(function () { return null; });
-    indexCurent = 0;
+    var acum = new Date().toISOString();
+    var recordNou = {
+      aria: inputAria.value.trim(),
+      masina: inputMasina.value.trim(),
+      pn: inputPn.value.trim(),
+      schimb: schimbSelectat,
+      auditor: inputAuditor.value.trim(),
+      dataStart: acum,
+      dataUltimaModificare: acum,
+      raspunsuri: itemi.map(function () { return null; }),
+      finalizat: false
+    };
+
+    adaugaAudit(recordNou).then(function (idNou) {
+      auditCurent = {
+        id: idNou,
+        aria: recordNou.aria,
+        masina: recordNou.masina,
+        pn: recordNou.pn,
+        schimb: recordNou.schimb,
+        auditor: recordNou.auditor,
+        dataStart: recordNou.dataStart
+      };
+      raspunsuri = recordNou.raspunsuri;
+      indexCurent = 0;
+
+      ecranStart.hidden = true;
+      ecranItem.hidden = false;
+      randeazaItem(indexCurent);
+
+      pruneazaAudituriVechi();
+    }).catch(function (eroare) {
+      console.error(eroare);
+      alert("Nu s-a putut salva auditul in memoria telefonului. Incearca din nou.");
+    });
+  }
+
+  // ---------- deschiderea unui audit existent ----------
+
+  function deschideAudit(record) {
+    auditCurent = {
+      id: record.id,
+      aria: record.aria,
+      masina: record.masina,
+      pn: record.pn,
+      schimb: record.schimb,
+      auditor: record.auditor,
+      dataStart: record.dataStart
+    };
+    raspunsuri = record.raspunsuri.slice();
+
+    var indexNecompletat = raspunsuri.findIndex(function (r) { return r === null; });
+    indexCurent = indexNecompletat === -1 ? 0 : indexNecompletat;
 
     ecranStart.hidden = true;
+    ecranAudituriSalvate.hidden = true;
+    ecranFinal.hidden = true;
     ecranItem.hidden = false;
     randeazaItem(indexCurent);
   }
@@ -301,6 +504,7 @@
   }
 
   function mergiUrmatorul() {
+    salveazaProgresInDB();
     if (indexCurent + 1 >= itemi.length) {
       ecranItem.hidden = true;
       ecranFinal.hidden = false;
@@ -314,6 +518,120 @@
     if (indexCurent === 0) return;
     indexCurent--;
     randeazaItem(indexCurent);
+  }
+
+  // ---------- ecran audituri salvate ----------
+
+  function randeazaListaAudituri() {
+    listaAudituri.innerHTML = "";
+
+    if (!bazaDate) return;
+
+    obtineToateAudituri().then(function (toate) {
+      if (toate.length === 0) {
+        var gol = document.createElement("div");
+        gol.className = "text-gol";
+        gol.textContent = "Nu exista audituri salvate.";
+        listaAudituri.appendChild(gol);
+        return;
+      }
+
+      toate.sort(function (a, b) { return new Date(b.dataUltimaModificare) - new Date(a.dataUltimaModificare); });
+
+      toate.forEach(function (audit) {
+        listaAudituri.appendChild(construiesteRandAudit(audit));
+      });
+    });
+  }
+
+  function construiesteRandAudit(audit) {
+    var completate = audit.raspunsuri.filter(function (r) { return r !== null; }).length;
+    var total = audit.raspunsuri.length;
+
+    var rand = document.createElement("div");
+    rand.className = "rand-audit";
+
+    var info = document.createElement("div");
+    info.className = "rand-audit-info";
+
+    var titlu = document.createElement("div");
+    titlu.className = "rand-audit-titlu";
+    titlu.textContent = audit.aria + " - " + audit.masina;
+
+    var detalii = document.createElement("div");
+    detalii.className = "rand-audit-detalii" + (audit.finalizat ? " finalizat" : "");
+    detalii.textContent = formatDataOra(audit.dataUltimaModificare) + " - " + completate + "/" + total +
+      (audit.finalizat ? " - Finalizat" : "");
+
+    info.appendChild(titlu);
+    info.appendChild(detalii);
+
+    var actiuni = document.createElement("div");
+    actiuni.className = "rand-audit-actiuni";
+
+    var butonDeschide = document.createElement("button");
+    butonDeschide.type = "button";
+    butonDeschide.className = "buton-deschide";
+    butonDeschide.textContent = "Deschide";
+    butonDeschide.addEventListener("click", function () { deschideAudit(audit); });
+
+    var zonaSterge = document.createElement("div");
+    zonaSterge.className = "zona-sterge";
+    randeazaButonStergeInitial(zonaSterge, audit.id);
+
+    actiuni.appendChild(butonDeschide);
+    actiuni.appendChild(zonaSterge);
+
+    rand.appendChild(info);
+    rand.appendChild(actiuni);
+
+    return rand;
+  }
+
+  function randeazaButonStergeInitial(zona, id) {
+    zona.innerHTML = "";
+    var buton = document.createElement("button");
+    buton.type = "button";
+    buton.className = "buton-sterge";
+    buton.textContent = "Sterge";
+    buton.addEventListener("click", function () {
+      randeazaConfirmareStergere(zona, id);
+    });
+    zona.appendChild(buton);
+  }
+
+  function randeazaConfirmareStergere(zona, id) {
+    zona.innerHTML = "";
+
+    var butonNu = document.createElement("button");
+    butonNu.type = "button";
+    butonNu.className = "buton-sterge-nu";
+    butonNu.textContent = "Nu";
+
+    var butonDa = document.createElement("button");
+    butonDa.type = "button";
+    butonDa.className = "buton-sterge-da";
+    butonDa.textContent = "Da";
+
+    var timeoutRevenire = setTimeout(function () {
+      randeazaButonStergeInitial(zona, id);
+    }, TIMP_REVENIRE_STERGERE_MS);
+
+    butonNu.addEventListener("click", function () {
+      clearTimeout(timeoutRevenire);
+      randeazaButonStergeInitial(zona, id);
+    });
+
+    butonDa.addEventListener("click", function () {
+      clearTimeout(timeoutRevenire);
+      stergeAudit(id).then(function () {
+        randeazaListaAudituri();
+        verificaAudituriExistente();
+      });
+    });
+
+    zona.appendChild(butonNu);
+    zona.appendChild(butonDa);
   }
 
   init();
