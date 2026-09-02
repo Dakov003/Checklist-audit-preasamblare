@@ -90,7 +90,8 @@
   var canvasSemnatura = document.getElementById("canvas-semnatura");
   var ctxSemnatura = canvasSemnatura.getContext("2d");
   var butonStergeSemnatura = document.getElementById("buton-sterge-semnatura");
-  var butonGenereazaRaport = document.getElementById("buton-genereaza-raport");
+  var butonTrimite = document.getElementById("buton-trimite");
+  var butonDescarcaPdf = document.getElementById("buton-descarca-pdf");
   var butonExportCsv = document.getElementById("buton-export-csv");
   var butonInapoiSumar = document.getElementById("buton-inapoi-sumar");
 
@@ -157,7 +158,8 @@
     butonAdaugaPoza.addEventListener("click", function () { inputPoza.click(); });
     inputPoza.addEventListener("change", peSchimbareInputPoza);
 
-    butonGenereazaRaport.addEventListener("click", peClicGenereazaRaport);
+    butonTrimite.addEventListener("click", peClicTrimite);
+    butonDescarcaPdf.addEventListener("click", peClicDescarcaPdf);
     butonExportCsv.addEventListener("click", peClicExportCsv);
 
     initializeazaSemnatura();
@@ -1033,25 +1035,65 @@
       "_" + doiDigiti(data.getHours()) + doiDigiti(data.getMinutes());
   }
 
-  function peClicGenereazaRaport() {
+  function peClicDescarcaPdf() {
     if (!auditCurent || !auditCurent.id) return;
-    var textOriginal = butonGenereazaRaport.textContent;
-    butonGenereazaRaport.disabled = true;
-    butonGenereazaRaport.textContent = "Se genereaza...";
+    ruleazaCuButonBlocat(butonDescarcaPdf, "Se genereaza...", function () {
+      return incarcaLibrariiPDF()
+        .then(function () { return construiesteDocumentRaport(); })
+        .then(function (doc) { doc.save(construiesteNumeDeBaza() + ".pdf"); });
+    }, "Raportul nu a putut fi generat. Incearca din nou.");
+  }
 
-    incarcaLibrariiPDF()
-      .then(function () { return genereazaRaportPDF(); })
+  function peClicTrimite() {
+    if (!auditCurent || !auditCurent.id) return;
+
+    if (typeof navigator.share !== "function") {
+      alert("Trimiterea directa nu e disponibila pe acest dispozitiv sau browser. Foloseste Descarca PDF.");
+      return;
+    }
+
+    ruleazaCuButonBlocat(butonTrimite, "Se pregateste...", function () {
+      return incarcaLibrariiPDF()
+        .then(function () { return construiesteDocumentRaport(); })
+        .then(function (doc) {
+          var numeFisier = construiesteNumeDeBaza() + ".pdf";
+          var blobPdf = doc.output("blob");
+          var fisier = new File([blobPdf], numeFisier, { type: "application/pdf" });
+
+          if (!navigator.canShare || !navigator.canShare({ files: [fisier] })) {
+            alert("Trimiterea directa nu e disponibila pe acest dispozitiv sau browser. Foloseste Descarca PDF.");
+            return;
+          }
+
+          return navigator.share({
+            files: [fisier],
+            title: "Audit " + auditCurent.aria + " " + auditCurent.masina,
+            text: "Raport audit preasamblare"
+          }).catch(function (eroare) {
+            if (eroare && eroare.name === "AbortError") return;
+            throw eroare;
+          });
+        });
+    }, "Raportul nu a putut fi trimis. Incearca din nou, sau foloseste Descarca PDF.");
+  }
+
+  function ruleazaCuButonBlocat(buton, textInTimpulRularii, actiune, mesajEroare) {
+    var textOriginal = buton.textContent;
+    buton.disabled = true;
+    buton.textContent = textInTimpulRularii;
+
+    actiune()
       .catch(function (eroare) {
-        console.error("Nu s-a putut genera raportul", eroare);
-        alert("Raportul nu a putut fi generat. Incearca din nou.");
+        console.error(mesajEroare, eroare);
+        alert(mesajEroare);
       })
       .then(function () {
-        butonGenereazaRaport.disabled = false;
-        butonGenereazaRaport.textContent = textOriginal;
+        buton.disabled = false;
+        buton.textContent = textOriginal;
       });
   }
 
-  function genereazaRaportPDF() {
+  function construiesteDocumentRaport() {
     var sumar = calculeazaSumar();
 
     return obtinePozeNokCaDataUrl(auditCurent.id, sumar).then(function (pozeNok) {
@@ -1230,7 +1272,7 @@
       }
       doc.text("Generat la: " + formatDataOra(new Date().toISOString()), margine, y);
 
-      doc.save(construiesteNumeDeBaza() + ".pdf");
+      return doc;
     });
   }
 

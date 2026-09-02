@@ -113,7 +113,8 @@ Se afiseaza dupa ultimul item, dar accesibil oricand printr-un buton `Sumar`.
 - Lista tuturor NOK-urilor, cu nr., text scurt, responsabil si termen
 - Avertizare rosie daca au ramas itemi necompletati, cu buton care sare la primul
 - Semnatura: zona de desen cu degetul, salvata ca imagine
-- Butoane: **Genereaza raport** si **Trimite**
+- Butoane, toate disponibile mereu (vezi si sectiunea 7): **Trimite**,
+  **Descarca PDF**, **Export CSV**
 
 ## 6. Raportul
 
@@ -136,7 +137,10 @@ Al doilea buton: **Export CSV**, un rand per item, pentru trend in Excel.
 
 ## 7. Trimiterea
 
-Un singur buton **Trimite**, care apeleaza Web Share API cu PDF-ul atasat:
+Trei butoane separate pe ecranul de sumar, toate disponibile mereu (nu unul
+fallback pentru celalalt): **Trimite**, **Descarca PDF**, **Export CSV**.
+
+**Trimite** apeleaza Web Share API cu PDF-ul atasat:
 
 ```js
 navigator.share({ files: [pdfFile], title: ..., text: ... })
@@ -145,8 +149,14 @@ navigator.share({ files: [pdfFile], title: ..., text: ... })
 Deschide meniul nativ al telefonului: Telegram, Teams, Outlook, WhatsApp, Drive -
 orice are utilizatorul instalat. Fara token, fara configurare.
 
-Daca `navigator.canShare({files})` returneaza false (browser vechi, desktop),
-butonul descarca PDF-ul si afiseaza un mesaj scurt: descarcat, atasati-l manual.
+Daca `navigator.canShare({files})` returneaza false (browser vechi, desktop) sau
+`navigator.share` nu exista deloc, **Trimite** afiseaza un mesaj scurt ca
+trimiterea directa nu e disponibila si sa foloseasca **Descarca PDF**. Nu
+descarca automat in locul utilizatorului - descarcarea e oricum disponibila
+separat, oricand, prin butonul propriu.
+
+**Descarca PDF** genereaza si descarca raportul direct, indiferent daca
+trimiterea directa e sau nu disponibila pe acel dispozitiv.
 
 ## 8. Istoric local
 
