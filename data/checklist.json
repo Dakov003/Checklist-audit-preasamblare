@@ -1,0 +1,76 @@
+{
+  "versiune": "V7",
+  "categorii": [
+    {
+      "nume": "1. Curatenie si Standardizare (5S)",
+      "itemi": [
+        { "nr": 1, "risc": "Minor", "cerinta": "Baza masinii sa fie curata fara span si mizerie." },
+        { "nr": 2, "risc": "Minor", "cerinta": "Sub masina curat sa fie fara ulei, span sau alte reziduuri tehnologice." },
+        { "nr": 3, "risc": "Minor", "cerinta": "Zona de lucru libera sa fie fara scule, suruburi sau materiale uitate pe masina." },
+        { "nr": 4, "risc": "Major", "cerinta": "Mesele de lucru curate sa fie fara rugina, vopsea exfoliata, span sau mizerie." },
+        { "nr": 5, "risc": "Minor", "cerinta": "Lada rosie/galbena sa fie curata, golita si cu folie." },
+        { "nr": 6, "risc": "Major", "cerinta": "Lazile si Gitterbox-rile pentru piese bune sa fie curate, fara corpuri straine si etichetate corect." },
+        { "nr": 7, "risc": "Minor", "cerinta": "Carucioare de transport sa fie curate, in stare buna, cu robinetul de scurgere inchis unde exista." },
+        { "nr": 8, "risc": "Major", "cerinta": "Lere si calibre sa fie fara span si mizerie la conectori si segmenti, fara deteriorari sau vopsea, etichete si protectii intacte, TUV-ul de avizare nedeteriorat." },
+        { "nr": 9, "risc": "Major", "cerinta": "Magazia de tevi (loader) sa fie curata, cuiburile fara ulei sau span, profilele Bosch cu chedere montate." },
+        { "nr": 10, "risc": "Minor", "cerinta": "Sistemele de descarcare sa nu fie deteriorate, profilele Bosch cu chedere  montate, canale curate fara span sau ulei." },
+        { "nr": 11, "risc": "Major", "cerinta": "Cabluri de alimentare si semnal sa fie curate si intacte, fara izolatie improvizata sau fire la vedere." },
+        { "nr": 12, "risc": "Minor", "cerinta": "Traseele de cabluri sa fie fixate conform standardului, niciun cablu nu atarna liber." },
+        { "nr": 13, "risc": "Minor", "cerinta": "Cablurile de la panoul de comanda sa fie  protejate de pat pt cabluri." },
+        { "nr": 14, "risc": "Major", "cerinta": "Postul de lucru sa fie  organizat (5S): scule, cutii si dulapuri curate, ordonate si etichetate; fara improvizatii la masini; fara smirghel, buline sau alte abrazive si textile neautorizate." }
+      ]
+    },
+    {
+      "nume": "2. Stare Tehnica, HMI si Safety (HSE)",
+      "itemi": [
+        { "nr": 15, "risc": "Critic", "cerinta": "Insemnul \"Caracteristica Importanta\" este afisat vizibil pe masina, conform planului de control." },
+        { "nr": 16, "risc": "Major", "cerinta": "Manometre intregi si functionale, cu valori in limitele din fisa de parametri sau tpm." },
+        { "nr": 17, "risc": "Minor", "cerinta": "Butoanele de pe panou sunt etichetate vizibil, cu text clar in romana." },
+        { "nr": 18, "risc": "Major", "cerinta": "Butoanele sunt intregi, niciunul spart, blocat sau deteriorat." },
+        { "nr": 19, "risc": "Major", "cerinta": "Semafoarele de avertizare functioneaza corect pe toate starile masinii." },
+        { "nr": 20, "risc": "Minor", "cerinta": "Ledurile din butoane functioneaza, ca operatorul sa aiba semnal vizual." },
+        { "nr": 21, "risc": "Critic", "cerinta": "Safety: protectiile mecanice, barierele optice si butoanele de urgenta sunt montate, intacte si functioneaza." },
+        { "nr": 22, "risc": "Critic", "cerinta": "LOTO: la orice interventie se aplica blocarea, dispozitivele exista si oamenii stiu procedura." },
+        { "nr": 23, "risc": "Major", "cerinta": "Echipamentul de protectie este purtat efectiv, conform cerintelor postului." },
+        { "nr": 24, "risc": "Major", "cerinta": "Iluminarea la posturile de verificare vizuala exista si este functional." },
+        { "nr": 25, "risc": "Critic", "cerinta": "Acces la parametri: parole pe niveluri la PLC/HMI, programul incarcat coincide cu ordinul de productie, modificarile sunt inregistrate." }
+      ]
+    },
+    {
+      "nume": "3. Calitate, Trasabilitate si IT",
+      "itemi": [
+        { "nr": 26, "risc": "Critic", "cerinta": "Studiile de capabilitate (Cmk / Cpk / Ppk) exista si sunt valabile pentru cotele critice." },
+        { "nr": 27, "risc": "Major", "cerinta": "In SAP este alocata masina corecta pentru avizarea procesului." },
+        { "nr": 28, "risc": "Critic", "cerinta": "Numarul de desen al produsului finit din ordinul de productie este acelasi cu cel de pe desenul valabil." },
+        { "nr": 29, "risc": "Critic", "cerinta": "PN-ul materiei prime si numarul ordinului sunt trecute corect si se potrivesc cu materia prima aflata la post." },
+        { "nr": 30, "risc": "Critic", "cerinta": "Work-center-ul din ordinul de productie este corect cel pe care se lucreaza." },
+        { "nr": 31, "risc": "Critic", "cerinta": "Codurile lerelor, matritelor de gaurire sculelor montate pe masina sunt aceleasi cu cele trecute in ordinul de productie." },
+        { "nr": 32, "risc": "Critic", "cerinta": "Frecventa de verificare pe sablon/calibru este trecuta corect in ordin, la fel ca in planul de verificare, si se respecta la post." },
+        { "nr": 33, "risc": "Critic", "cerinta": "Piesele produse corespund ordinului deschis: reperul, lotul si cantitatea raportata coincid cu ce este in lada." },
+        { "nr": 34, "risc": "Major", "cerinta": "Codurile instructiunilor de lucru si de verificare sunt trecute in ordin si actualizate la fel ca pe touchscreen." },
+        { "nr": 35, "risc": "Major", "cerinta": "Monitorizarea orara este completata si figureaza in ordinul de productie sau in format electronic pe thouchscreen." },
+        { "nr": 36, "risc": "Major", "cerinta": "Userii si parolele nu sunt scrise pe hartii sau lasate la vedere la postul de lucru." },
+        { "nr": 37, "risc": "Critic", "cerinta": "Oamenii care lucreaza si avizeaza in SAP sunt instruiti si nu apar pe rosu in matricea de calificare." },
+        { "nr": 38, "risc": "Critic", "cerinta": "Prima piesa este la panou, avizata in SAP, cu eticheta de status corecta." },
+        { "nr": 39, "risc": "Critic", "cerinta": "Lerele si calibrele au eticheta de avizare in termen." },
+        { "nr": 40, "risc": "Major", "cerinta": "Formularele de mentenanta preventiva si verificarile Safety zilnice sunt completate si semnate la zi." },
+        { "nr": 41, "risc": "Critic", "cerinta": "Rebuturile: identificate cu tipul defectului, etichetate, puse in lada rosie, iar defectul vizual marcat cu rosu." },
+        { "nr": 42, "risc": "Critic", "cerinta": "Instructiunea de lucru si cea de verificare de la post de lucru sunt la ultima versiune aprobata." },
+        { "nr": 43, "risc": "Major", "cerinta": "Mostrele de defecte vizuale sunt la post, identificate si in termen." },
+        { "nr": 44, "risc": "Major", "cerinta": "Exista studii MSA / R&R valabile pentru mijloacele de masurare(subler, ruleta,cantare, etc), inclusiv lere si calibre avizate de CM." },
+        { "nr": 45, "risc": "Critic", "cerinta": "Verificarile din timpul productiei se fac la frecventa din planul de verificare si sunt inregistrate complet." },
+        { "nr": 46, "risc": "Major", "cerinta": "Piesa mostra este etichetata conform procedurii si nu are defecte." },
+        { "nr": 47, "risc": "Critic", "cerinta": "Avizarea dupa reglaj sau schimbare de reper este documentata, iar piesele din timpul reglajului sunt separate." },
+        { "nr": 48, "risc": "Critic", "cerinta": "Planul de reactie este afisat pe touchscreen si operatorul stie ca se blocheaza lotul de la ultima piesa buna." },
+        { "nr": 49, "risc": "Major", "cerinta": "Materia prima este identificata, FIFO respectat, iar loturile corespund comenzii in lucru." },
+        { "nr": 50, "risc": "Critic", "cerinta": "Piesele suspecte sau pt decizie stau in zona de blocate, delimitata si sub control." },
+        { "nr": 51, "risc": "Major", "cerinta": "Inregistrarile de calitate se pastreaza cum cere clientul: durata, format, acces." },
+        { "nr": 52, "risc": "Critic", "cerinta": "Lipire:se verifica presiunea de gaz,apa si aer sa fie  conforme, parametrii sa fie dupa fisa," },
+        { "nr": 53, "risc": "Critic", "cerinta": "La deviatia parametrilor operatorul stie si aplica reactia: alarma, oprire, separarea materialului din intervalul afectat." },
+        { "nr": 54, "risc": "Major", "cerinta": "Indoire tevi: ovalitate, raze si lipsa fisurilor verificate conform desenului si instructiunii de verificare." },
+        { "nr": 55, "risc": "Critic", "cerinta": "Scule dinamometrice calibrate si in termen, program potrivit reperului, rezultate OK/NOK arhivate." },
+        { "nr": 56, "risc": "Critic", "cerinta": "La manipulare se protejeaza zonele de etansare si filetele: manusi, fara contact metal-metal, fara asezare directa pe suprafete neprotejate." }
+      ]
+    }
+  ]
+}
