@@ -16,6 +16,7 @@
   var LATURA_MAXIMA_POZA = 1280;
   var CALITATE_JPEG_POZA = 0.7;
   var LIMITA_POZE_PER_ITEM = 3;
+  var DELIMITATOR_CSV = ";";
 
   // stare aplicatie
   var itemi = [];        // lista plata: { nr, risc, cerinta, categorie }
@@ -29,6 +30,8 @@
   var primulNecompletatIndex = null;
   var desenandSemnatura = false;
   var urlPozeActive = [];          // object URL-uri create pentru miniaturile curente
+  var librariiPdfIncarcate = false;
+  var promisiuneLibrariiPdf = null;
 
   // elemente ecran start
   var ecranStart = document.getElementById("ecran-start");
@@ -87,6 +90,8 @@
   var canvasSemnatura = document.getElementById("canvas-semnatura");
   var ctxSemnatura = canvasSemnatura.getContext("2d");
   var butonStergeSemnatura = document.getElementById("buton-sterge-semnatura");
+  var butonGenereazaRaport = document.getElementById("buton-genereaza-raport");
+  var butonExportCsv = document.getElementById("buton-export-csv");
   var butonInapoiSumar = document.getElementById("buton-inapoi-sumar");
 
   // ecran audituri salvate
@@ -151,6 +156,9 @@
 
     butonAdaugaPoza.addEventListener("click", function () { inputPoza.click(); });
     inputPoza.addEventListener("change", peSchimbareInputPoza);
+
+    butonGenereazaRaport.addEventListener("click", peClicGenereazaRaport);
+    butonExportCsv.addEventListener("click", peClicExportCsv);
 
     initializeazaSemnatura();
 
@@ -753,7 +761,11 @@
         else nokMinor++;
         listaNokCalculata.push({
           nr: item.nr,
+          indexItem: index,
           cerinta: item.cerinta,
+          gasit: raspuns.gasit,
+          actiune: raspuns.actiune,
+          actiuneNecesara: raspuns.actiuneNecesara,
           responsabil: raspuns.responsabil,
           termen: raspuns.termen
         });
@@ -959,6 +971,323 @@
       ctxSemnatura.drawImage(imagine, 0, 0, canvasSemnatura.width, canvasSemnatura.height);
     };
     imagine.src = semnaturaCurenta;
+  }
+
+  // ---------- raport PDF si export CSV (Etapa 5) ----------
+
+  function incarcaScript(src) {
+    return new Promise(function (resolve, reject) {
+      var script = document.createElement("script");
+      script.src = src;
+      script.onload = function () { resolve(); };
+      script.onerror = function () { reject(new Error("Nu s-a putut incarca " + src)); };
+      document.body.appendChild(script);
+    });
+  }
+
+  function incarcaLibrariiPDF() {
+    if (librariiPdfIncarcate) return Promise.resolve();
+    if (promisiuneLibrariiPdf) return promisiuneLibrariiPdf;
+    promisiuneLibrariiPdf = incarcaScript("lib/jspdf.umd.min.js")
+      .then(function () { return incarcaScript("lib/jspdf.plugin.autotable.min.js"); })
+      .then(function () { librariiPdfIncarcate = true; });
+    return promisiuneLibrariiPdf;
+  }
+
+  function blobLaDataUrl(blob) {
+    return new Promise(function (resolve, reject) {
+      var cititor = new FileReader();
+      cititor.onload = function () { resolve(cititor.result); };
+      cititor.onerror = function () { reject(cititor.error); };
+      cititor.readAsDataURL(blob);
+    });
+  }
+
+  function obtinePozeNokCaDataUrl(auditId, sumar) {
+    var pozePerNr = {};
+    return Promise.all(sumar.listaNok.map(function (nokItem) {
+      return obtinePozeItem(auditId, nokItem.indexItem).then(function (poze) {
+        return Promise.all(poze.map(function (p) { return blobLaDataUrl(p.blob); }));
+      }).then(function (dataUrls) {
+        pozePerNr[nokItem.nr] = dataUrls;
+      });
+    })).then(function () { return pozePerNr; });
+  }
+
+  function culoareVerdictRGB(verdict) {
+    if (verdict === "NEEVALUAT") return [117, 117, 117];
+    if (verdict === "CONFORM") return [46, 125, 50];
+    if (verdict === "CONFORM CU OBSERVATII") return [249, 168, 37];
+    return [198, 40, 40]; // BLOCAT sau NECONFORM
+  }
+
+  function sanitizeazaPentruNumeFisier(text) {
+    return (text || "").trim().replace(/[^a-zA-Z0-9\-]+/g, "_");
+  }
+
+  function construiesteNumeDeBaza() {
+    var data = new Date(auditCurent.dataStart);
+    return "Audit_" + sanitizeazaPentruNumeFisier(auditCurent.aria) + "_" +
+      sanitizeazaPentruNumeFisier(auditCurent.masina) + "_" +
+      data.getFullYear() + "-" + doiDigiti(data.getMonth() + 1) + "-" + doiDigiti(data.getDate()) +
+      "_" + doiDigiti(data.getHours()) + doiDigiti(data.getMinutes());
+  }
+
+  function peClicGenereazaRaport() {
+    if (!auditCurent || !auditCurent.id) return;
+    var textOriginal = butonGenereazaRaport.textContent;
+    butonGenereazaRaport.disabled = true;
+    butonGenereazaRaport.textContent = "Se genereaza...";
+
+    incarcaLibrariiPDF()
+      .then(function () { return genereazaRaportPDF(); })
+      .catch(function (eroare) {
+        console.error("Nu s-a putut genera raportul", eroare);
+        alert("Raportul nu a putut fi generat. Incearca din nou.");
+      })
+      .then(function () {
+        butonGenereazaRaport.disabled = false;
+        butonGenereazaRaport.textContent = textOriginal;
+      });
+  }
+
+  function genereazaRaportPDF() {
+    var sumar = calculeazaSumar();
+
+    return obtinePozeNokCaDataUrl(auditCurent.id, sumar).then(function (pozeNok) {
+      var doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4" });
+
+      var latimePagina = doc.internal.pageSize.getWidth();
+      var inaltimePagina = doc.internal.pageSize.getHeight();
+      var margine = 15;
+      var latimeUtila = latimePagina - margine * 2;
+      var y = margine;
+
+      function verificaPagina(inaltimeNecesara) {
+        if (y + inaltimeNecesara > inaltimePagina - margine) {
+          doc.addPage();
+          y = margine;
+        }
+      }
+
+      // 1. Antet
+      doc.setFontSize(16);
+      doc.setFont(undefined, "bold");
+      doc.text("Audit Preasamblare", margine, y);
+      y += 8;
+      doc.setFontSize(11);
+      doc.setFont(undefined, "normal");
+      doc.text("Aria: " + auditCurent.aria + "   Nr. masina: " + auditCurent.masina, margine, y);
+      y += 6;
+      doc.text("PN: " + auditCurent.pn + "   Schimb: " + auditCurent.schimb, margine, y);
+      y += 6;
+      doc.text("Auditor: " + auditCurent.auditor, margine, y);
+      y += 6;
+      doc.text("Data si ora: " + formatDataOra(auditCurent.dataStart), margine, y);
+      y += 10;
+
+      // 2. Verdict
+      var culoare = culoareVerdictRGB(sumar.verdict);
+      doc.setFillColor(culoare[0], culoare[1], culoare[2]);
+      doc.rect(margine, y, latimeUtila, 12, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(14);
+      doc.setFont(undefined, "bold");
+      var textVerdict = sumar.verdict === "NEEVALUAT"
+        ? sumar.verdict
+        : sumar.verdict + " (" + formatProcent(sumar.procent) + ")";
+      doc.text(textVerdict, latimePagina / 2, y + 8, { align: "center" });
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(undefined, "normal");
+      y += 20;
+
+      // 3. Tabel sumar
+      doc.autoTable({
+        startY: y,
+        margin: { left: margine, right: margine },
+        head: [["Total", "OK", "NOK", "N/A", "Necompletati", "NOK critice", "NOK major/minor"]],
+        body: [[sumar.total, sumar.ok, sumar.nok, sumar.na, sumar.necompletati, sumar.nokCritice, sumar.nokMajor + "/" + sumar.nokMinor]],
+        theme: "grid",
+        styles: { fontSize: 9, halign: "center" }
+      });
+      y = doc.lastAutoTable.finalY + 8;
+
+      verificaPagina(20);
+      doc.setFontSize(12);
+      doc.setFont(undefined, "bold");
+      doc.text("Defalcare pe categorii", margine, y);
+      y += 4;
+      doc.setFont(undefined, "normal");
+
+      doc.autoTable({
+        startY: y,
+        margin: { left: margine, right: margine },
+        head: [["Categorie", "Total", "OK", "NOK", "N/A", "Necompletat", "% Conformitate"]],
+        body: sumar.categorii.map(function (cat) {
+          return [cat.nume, cat.total, cat.ok, cat.nok, cat.na, cat.necompletat, formatProcent(cat.procent)];
+        }),
+        theme: "grid",
+        styles: { fontSize: 9 }
+      });
+      y = doc.lastAutoTable.finalY + 10;
+
+      // 4. Sectiunea NOK
+      verificaPagina(10);
+      doc.setFontSize(13);
+      doc.setFont(undefined, "bold");
+      doc.text("Itemi NOK", margine, y);
+      y += 8;
+      doc.setFont(undefined, "normal");
+
+      if (sumar.listaNok.length === 0) {
+        doc.setFontSize(10);
+        doc.text("Niciun NOK inregistrat.", margine, y);
+        y += 8;
+      } else {
+        sumar.listaNok.forEach(function (nokItem) {
+          var poze = pozeNok[nokItem.nr] || [];
+          verificaPagina(45 + (poze.length > 0 ? 40 : 0));
+
+          doc.setFontSize(11);
+          doc.setFont(undefined, "bold");
+          var liniiTitlu = doc.splitTextToSize("Nr. " + nokItem.nr + " - " + nokItem.cerinta, latimeUtila);
+          liniiTitlu.forEach(function (linie) {
+            doc.text(linie, margine, y);
+            y += 5;
+          });
+          doc.setFont(undefined, "normal");
+          doc.setFontSize(9);
+
+          var campuri = [
+            "Ce s-a gasit: " + (nokItem.gasit || "-"),
+            "Actiune imediata: " + (nokItem.actiune || "-"),
+            "Actiune necesara: " + (nokItem.actiuneNecesara || "-"),
+            "Responsabil: " + (nokItem.responsabil || "-") + "   Termen: " + formatDataScurta(nokItem.termen)
+          ];
+          campuri.forEach(function (camp) {
+            var liniiImpartite = doc.splitTextToSize(camp, latimeUtila);
+            liniiImpartite.forEach(function (linie) {
+              doc.text(linie, margine, y);
+              y += 5;
+            });
+          });
+
+          if (poze.length > 0) {
+            var latimePoza = 40;
+            var xPoza = margine;
+            poze.slice(0, LIMITA_POZE_PER_ITEM).forEach(function (dataUrl) {
+              try {
+                doc.addImage(dataUrl, "JPEG", xPoza, y, latimePoza, 35);
+              } catch (eroareImagine) {
+                console.error("Nu s-a putut adauga poza in PDF", eroareImagine);
+              }
+              xPoza += latimePoza + 5;
+            });
+            y += 40;
+          }
+
+          y += 6;
+        });
+      }
+
+      // 5. Tabelul complet
+      doc.addPage();
+      y = margine;
+      doc.setFontSize(13);
+      doc.setFont(undefined, "bold");
+      doc.text("Toti itemii", margine, y);
+      y += 4;
+      doc.setFont(undefined, "normal");
+
+      doc.autoTable({
+        startY: y,
+        margin: { left: margine, right: margine },
+        head: [["Nr", "Categorie", "Cerinta", "Risc", "Status"]],
+        body: itemi.map(function (item, index) {
+          var raspuns = raspunsuri[index];
+          return [item.nr, item.categorie, item.cerinta, item.risc, raspuns ? raspuns.status : "Necompletat"];
+        }),
+        theme: "grid",
+        styles: { fontSize: 7 },
+        columnStyles: { 2: { cellWidth: 75 } }
+      });
+      y = doc.lastAutoTable.finalY + 10;
+
+      // 6. Semnatura
+      verificaPagina(40);
+      doc.setFontSize(11);
+      doc.setFont(undefined, "bold");
+      doc.text("Semnatura", margine, y);
+      y += 6;
+      doc.setFont(undefined, "normal");
+      doc.setFontSize(9);
+      if (semnaturaCurenta) {
+        doc.addImage(semnaturaCurenta, "PNG", margine, y, 60, 28);
+        y += 32;
+      } else {
+        doc.text("(fara semnatura)", margine, y);
+        y += 8;
+      }
+      doc.text("Generat la: " + formatDataOra(new Date().toISOString()), margine, y);
+
+      doc.save(construiesteNumeDeBaza() + ".pdf");
+    });
+  }
+
+  function escapeCSV(valoare) {
+    var text = valoare || "";
+    if (text.indexOf(DELIMITATOR_CSV) !== -1 || text.indexOf("\"") !== -1 || text.indexOf("\n") !== -1) {
+      return "\"" + text.replace(/"/g, "\"\"") + "\"";
+    }
+    return text;
+  }
+
+  function peClicExportCsv() {
+    if (!auditCurent || !auditCurent.id) return;
+    try {
+      genereazaExportCSV();
+    } catch (eroare) {
+      console.error("Nu s-a putut exporta CSV", eroare);
+      alert("Exportul CSV nu a putut fi generat. Incearca din nou.");
+    }
+  }
+
+  function genereazaExportCSV() {
+    var randuri = [];
+    randuri.push("sep=" + DELIMITATOR_CSV);
+    randuri.push([
+      "Nr", "Categorie", "Risc", "Cerinta", "Status", "Ce_ai_gasit",
+      "Actiune_imediata", "Actiune_necesara", "Responsabil", "Termen", "Motiv_NA"
+    ].join(DELIMITATOR_CSV));
+
+    itemi.forEach(function (item, index) {
+      var raspuns = raspunsuri[index];
+      var linie = [
+        item.nr,
+        escapeCSV(item.categorie),
+        item.risc,
+        escapeCSV(item.cerinta),
+        raspuns ? raspuns.status : "Necompletat",
+        escapeCSV(raspuns && raspuns.gasit),
+        escapeCSV(raspuns && raspuns.actiune),
+        escapeCSV(raspuns && raspuns.actiuneNecesara),
+        escapeCSV(raspuns && raspuns.responsabil),
+        raspuns && raspuns.termen ? formatDataScurta(raspuns.termen) : "",
+        escapeCSV(raspuns && raspuns.motivNA)
+      ];
+      randuri.push(linie.join(DELIMITATOR_CSV));
+    });
+
+    var continut = "\uFEFF" + randuri.join("\r\n");
+    var blob = new Blob([continut], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement("a");
+    link.href = url;
+    link.download = construiesteNumeDeBaza() + ".csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   // ---------- ecran audituri salvate ----------
