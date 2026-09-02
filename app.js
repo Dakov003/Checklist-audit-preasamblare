@@ -103,6 +103,7 @@
   // ---------- pornire ----------
 
   function init() {
+    inregistreazaServiceWorker();
     incarcaPreferinte();
     actualizeazaDataOra();
     setInterval(actualizeazaDataOra, 30000);
@@ -192,6 +193,13 @@
 
     Promise.all([incarcareChecklist, deschidereDB]).then(function () {
       verificaAudituriExistente();
+    });
+  }
+
+  function inregistreazaServiceWorker() {
+    if (!("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("./sw.js").catch(function (eroare) {
+      console.error("Nu s-a putut inregistra service worker-ul", eroare);
     });
   }
 
